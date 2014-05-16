@@ -64,12 +64,6 @@ public class ResourceChangeIncrementalBuilder {
     private AppConfigService appConfigService;
 
     @Inject
-    private Event<BuildResults> buildResultsEvent;
-
-    @Inject
-    private Event<IncrementalBuildResults> incrementalBuildResultsEvent;
-
-    @Inject
     private Event<PublishBatchMessagesEvent> publishBatchMessagesEvent;
 
     @Inject
@@ -138,11 +132,9 @@ public class ResourceChangeIncrementalBuilder {
                     if ( buildService.isBuilt( project ) ) {
                         final IncrementalBuildResults results = buildService.addPackageResource( resource );
                         publishIncrementalBuildResults( results );
-                        //incrementalBuildResultsEvent.fire( results );
                     } else {
                         final BuildResults results = buildService.build( project );
                         publishBuildResults( results );
-                        //buildResultsEvent.fire( results );
                     }
 
                 } catch ( Exception e ) {
@@ -180,11 +172,9 @@ public class ResourceChangeIncrementalBuilder {
                     if ( buildService.isBuilt( project ) ) {
                         final IncrementalBuildResults results = buildService.deletePackageResource( resource );
                         publishIncrementalBuildResults( results );
-                        //incrementalBuildResultsEvent.fire( results );
                     } else {
                         final BuildResults results = buildService.build( project );
                         publishBuildResults( results );
-                        //buildResultsEvent.fire( results );
                     }
 
                 } catch ( Exception e ) {
@@ -229,8 +219,6 @@ public class ResourceChangeIncrementalBuilder {
                     logger.info( "Incremental build request being processed: " + project.getRootPath() + " (updated)." );
                     final BuildResults results = buildService.build( project );
                     publishBuildResults( results );
-                    //buildResultsEvent.fire( results );
-
                 } catch ( Exception e ) {
                     logger.error( e.getMessage(),
                                   e );
@@ -253,11 +241,9 @@ public class ResourceChangeIncrementalBuilder {
                     if ( buildService.isBuilt( project ) ) {
                         final IncrementalBuildResults results = buildService.updatePackageResource( resource );
                         publishIncrementalBuildResults( results );
-                        //incrementalBuildResultsEvent.fire( results );
                     } else {
                         final BuildResults results = buildService.build( project );
                         publishBuildResults( results );
-                        //buildResultsEvent.fire( results );
                     }
 
                 } catch ( Exception e ) {
@@ -314,14 +300,11 @@ public class ResourceChangeIncrementalBuilder {
 
                         //Fall back to a Full Build in lieu of an Incremental Build if the Project has not been previously built
                         if ( buildService.isBuilt( project ) ) {
-                            final IncrementalBuildResults results = buildService.applyBatchResourceChanges( project,
-                                                                                                            changes );
+                            final IncrementalBuildResults results = buildService.applyBatchResourceChanges( project,                                                                                                            changes );
                             publishIncrementalBuildResults( results );
-                            incrementalBuildResultsEvent.fire( results );
                         } else {
                             final BuildResults results = buildService.build( project );
                             publishBuildResults( results );
-                            //buildResultsEvent.fire( results );
                         }
 
                     } catch ( Exception e ) {

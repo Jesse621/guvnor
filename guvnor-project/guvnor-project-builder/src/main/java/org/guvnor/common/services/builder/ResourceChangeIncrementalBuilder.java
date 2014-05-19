@@ -28,21 +28,18 @@ import javax.enterprise.event.Event;
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 
-import org.guvnor.common.services.project.builder.model.BuildMessage;
 import org.guvnor.common.services.project.builder.model.BuildResults;
 import org.guvnor.common.services.project.builder.model.IncrementalBuildResults;
 import org.guvnor.common.services.project.builder.service.BuildService;
-import org.guvnor.common.services.project.builder.util.BuildMessageUtils;
 import org.guvnor.common.services.project.model.Package;
 import org.guvnor.common.services.project.model.Project;
 import org.guvnor.common.services.project.service.ProjectService;
 import org.guvnor.common.services.shared.config.AppConfigService;
-import org.guvnor.common.services.shared.events.PublishBatchMessagesEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.uberfire.backend.vfs.Path;
-import org.uberfire.commons.services.cdi.ApplicationStarted;
 import org.uberfire.workbench.events.ResourceChange;
+import org.uberfire.commons.services.cdi.ApplicationStarted;
 
 /**
  * Listener for changes to project resources to handle incremental builds
@@ -64,7 +61,10 @@ public class ResourceChangeIncrementalBuilder {
     private AppConfigService appConfigService;
 
     @Inject
-    private Event<PublishBatchMessagesEvent> publishBatchMessagesEvent;
+    private Event<BuildResults> buildResultsEvent;
+
+    @Inject
+    private Event<IncrementalBuildResults> incrementalBuildResultsEvent;
 
     @Inject
     private BuildExecutorServiceFactory executorServiceProducer;
@@ -131,10 +131,10 @@ public class ResourceChangeIncrementalBuilder {
                     //Fall back to a Full Build in lieu of an Incremental Build if the Project has not been previously built
                     if ( buildService.isBuilt( project ) ) {
                         final IncrementalBuildResults results = buildService.addPackageResource( resource );
-                        publishIncrementalBuildResults( results );
+                        incrementalBuildResultsEvent.fire( results );
                     } else {
                         final BuildResults results = buildService.build( project );
-                        publishBuildResults( results );
+                        buildResultsEvent.fire( results );
                     }
 
                 } catch ( Exception e ) {
@@ -171,10 +171,10 @@ public class ResourceChangeIncrementalBuilder {
                     //Fall back to a Full Build in lieu of an Incremental Build if the Project has not been previously built
                     if ( buildService.isBuilt( project ) ) {
                         final IncrementalBuildResults results = buildService.deletePackageResource( resource );
-                        publishIncrementalBuildResults( results );
+                        incrementalBuildResultsEvent.fire( results );
                     } else {
                         final BuildResults results = buildService.build( project );
-                        publishBuildResults( results );
+                        buildResultsEvent.fire( results );
                     }
 
                 } catch ( Exception e ) {
@@ -218,7 +218,8 @@ public class ResourceChangeIncrementalBuilder {
                 try {
                     logger.info( "Incremental build request being processed: " + project.getRootPath() + " (updated)." );
                     final BuildResults results = buildService.build( project );
-                    publishBuildResults( results );
+                    buildResultsEvent.fire( results );
+
                 } catch ( Exception e ) {
                     logger.error( e.getMessage(),
                                   e );
@@ -240,10 +241,10 @@ public class ResourceChangeIncrementalBuilder {
                     //Fall back to a Full Build in lieu of an Incremental Build if the Project has not been previously built
                     if ( buildService.isBuilt( project ) ) {
                         final IncrementalBuildResults results = buildService.updatePackageResource( resource );
-                        publishIncrementalBuildResults( results );
+                        incrementalBuildResultsEvent.fire( results );
                     } else {
                         final BuildResults results = buildService.build( project );
-                        publishBuildResults( results );
+                        buildResultsEvent.fire( results );
                     }
 
                 } catch ( Exception e ) {
@@ -300,11 +301,12 @@ public class ResourceChangeIncrementalBuilder {
 
                         //Fall back to a Full Build in lieu of an Incremental Build if the Project has not been previously built
                         if ( buildService.isBuilt( project ) ) {
-                            final IncrementalBuildResults results = buildService.applyBatchResourceChanges( project,                                                                                                            changes );
-                            publishIncrementalBuildResults( results );
+                            final IncrementalBuildResults results = buildService.applyBatchResourceChanges( project,
+                                                                                                            changes );
+                            incrementalBuildResultsEvent.fire( results );
                         } else {
                             final BuildResults results = buildService.build( project );
-                            publishBuildResults( results );
+                            buildResultsEvent.fire( results );
                         }
 
                     } catch ( Exception e ) {
@@ -314,36 +316,6 @@ public class ResourceChangeIncrementalBuilder {
                 }
             } );
         }
-    }
-
-    private void publishBuildResults( BuildResults buildResults ) {
-        PublishBatchMessagesEvent batchMessages = new PublishBatchMessagesEvent();
-
-        //clean all build system messages and publish the new ones.
-        batchMessages.setCleanExisting( true );
-        batchMessages.setMessageType( BuildMessageUtils.BUILD_SYSTEM_MESSAGE );
-
-        if ( buildResults.getMessages() != null ) {
-            for ( BuildMessage buildMessage : buildResults.getMessages() ) {
-                batchMessages.getMessagesToPublish().add( BuildMessageUtils.convert( buildMessage ) );
-            }
-        }
-        publishBatchMessagesEvent.fire( batchMessages );
-    }
-
-    private void publishIncrementalBuildResults( IncrementalBuildResults incrementalBuildResults ) {
-        PublishBatchMessagesEvent batchMessages = new PublishBatchMessagesEvent();
-        if ( incrementalBuildResults.getAddedMessages() != null ) {
-            for ( BuildMessage buildMessage : incrementalBuildResults.getAddedMessages() ) {
-                batchMessages.getMessagesToPublish().add( BuildMessageUtils.convert( buildMessage ) );
-            }
-        }
-        if ( incrementalBuildResults.getRemovedMessages() != null ) {
-            for ( BuildMessage buildMessage : incrementalBuildResults.getRemovedMessages() ) {
-                batchMessages.getMessagesToUnpublish().add( BuildMessageUtils.convert( buildMessage ) );
-            }
-        }
-        publishBatchMessagesEvent.fire( batchMessages );
     }
 
 }
